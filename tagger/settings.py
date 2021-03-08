@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-COMPLETED_DF = "data/completed.pkl"
+COMPLETED_DF = os.path.join(os.environ.get("DATA_DIR", "data/"), "completed.pkl")
 AIRTABLE_API_KEY = os.environ.get("AIRTABLE_API_KEY")
 AIRTABLE_BASE_ID = os.environ.get("AIRTABLE_BASE_ID")
 AIRTABLE_TAGS_TABLE_NAME = "Tags"
