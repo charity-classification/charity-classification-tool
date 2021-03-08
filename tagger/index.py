@@ -34,7 +34,7 @@ app.validation_layout = html.Div(
     [Input("url", "pathname")],
 )
 def display_page(pathname):
-    if pathname != "/":
+    if pathname.startswith("/tag/"):
         return page_tag.layout
     return page_main.layout
 

@@ -130,7 +130,7 @@ def filter_main_page(filter_value, show_rows_regex, order_by, order_by_direction
             html.Tr(
                 children=[
                     html.Td(
-                        dcc.Link(row["tag"], href="/{}".format(row["tag_slug"])),
+                        dcc.Link(row["tag"], href="/tag/{}".format(row["tag_slug"])),
                         className="pv2 ph3",
                     ),
                     html.Td(html.Code(row["Regular expression"]), className="pv2 ph3 mw6", style={"word-break": "break-word"}),

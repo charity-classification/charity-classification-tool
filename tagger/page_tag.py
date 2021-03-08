@@ -62,7 +62,7 @@ layout = [
 )
 def tag_regex_setup(pathname):
     tags_used = get_tags_used()
-    tag_slug = pathname[1:]
+    tag_slug = pathname[5:]
     if tag_slug not in tags_used["tag_slug"].unique():
         return DEFAULT_REGEX
     regex = tags_used.loc[tags_used["tag_slug"] == tag_slug, "Regular expression"].iloc[0]
@@ -88,7 +88,7 @@ def tag_regex_setup(pathname):
 def tag_regex_page(keyword_regex, pathname):
     tags_used = get_tags_used()
     df, corpus = get_completed_data()
-    tag_slug = pathname[1:]
+    tag_slug = pathname[5:]
     try:
         tag = tags_used.loc[tags_used["tag_slug"] == tag_slug, :].iloc[0]
     except IndexError as e:
@@ -187,7 +187,7 @@ def tag_regex_page(keyword_regex, pathname):
                                     html.Li(
                                         dcc.Link(
                                             t,
-                                            href=("/" + slugify(t)),
+                                            href=("/tag/" + slugify(t)),
                                             className="white link underline-hover",
                                         ),
                                         className="dib pa1 bg-blue white mr1 mb1",
