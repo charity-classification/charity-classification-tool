@@ -2,9 +2,9 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 
-from app import app
-from data import tags_used
-from utils import stat_colour
+from tagger.app import app
+from tagger.data import tags_used
+from tagger.utils import stat_colour
 
 layout = [
     html.Div([

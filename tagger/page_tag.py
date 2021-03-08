@@ -7,10 +7,10 @@ from dash_dangerously_set_inner_html import DangerouslySetInnerHTML
 from slugify import slugify
 import pandas as pd
 
-from app import app
-from data import RESULT_TYPES, get_keyword_result, get_result_summary, tags_used, df, save_regex_to_airtable
-from utils import stats_box, highlight_regex
-from settings import DEFAULT_REGEX
+from tagger.app import app
+from tagger.data import RESULT_TYPES, get_keyword_result, get_result_summary, tags_used, df, save_regex_to_airtable
+from tagger.utils import stats_box, highlight_regex
+from tagger.settings import DEFAULT_REGEX
 
 
 layout = [

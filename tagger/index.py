@@ -2,8 +2,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 
-from app import app
-import page_main, page_tag
+from tagger.app import app
+from tagger import page_main, page_tag
 
 
 base_layout = html.Div(

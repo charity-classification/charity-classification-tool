@@ -2,7 +2,7 @@ from airtable import Airtable
 import pandas as pd
 from slugify import slugify
 
-import settings
+from tagger import settings
 
 
 df = pd.read_pickle(settings.COMPLETED_DF)
