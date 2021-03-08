@@ -9,18 +9,6 @@ df = pd.read_pickle(settings.COMPLETED_DF)
 corpus = pd.DataFrame([df["name"], df["activities"].fillna(df["objects"])]).T.apply(
     lambda x: " ".join(x), axis=1
 )
-tags_used = (
-    df["Tags"]
-    .apply(pd.Series)
-    .unstack()
-    .dropna()
-    .value_counts()
-    .rename("frequency")
-    .to_frame()
-    .reset_index()
-    .rename(columns={"index": "tag"})
-)
-tags_used.loc[:, "tag_slug"] = tags_used["tag"].apply(slugify)
 
 RESULT_TYPES = {
     "false-positive": "Records that should not have been selected but were",
@@ -41,7 +29,12 @@ def get_tags_used():
         index=[i["id"] for i in data],
         data=[i["fields"] for i in data],
     ).rename(columns={"Name": "tag"})
+    data = data[data["Not used (describe why)"].isnull()]
     data.loc[:, "tag_slug"] = data["tag"].apply(slugify)
+    data.loc[:, "precision"] = pd.NA
+    data.loc[:, "recall"] = pd.NA
+    data.loc[:, "f1score"] = pd.NA
+    data.loc[:, "accuracy"] = pd.NA
 
     tags_used = (
         df["Tags"]
@@ -52,6 +45,14 @@ def get_tags_used():
         .rename("frequency")
     )
     data = data.join(tags_used, on="tag")
+
+    for index, row in data[data["Regular expression"].notnull()].iterrows():
+        result = get_keyword_result(row["tag"], row["Regular expression"])
+        summary = get_result_summary(result)
+        data.loc[index, "precision"] = summary["precision"]
+        data.loc[index, "recall"] = summary["recall"]
+        data.loc[index, "f1score"] = summary["f1score"]
+        data.loc[index, "accuracy"] = summary["accuracy"]
 
     return data.sort_values("frequency", ascending=False)
 
@@ -93,3 +94,25 @@ def get_result_summary(result):
         result_summary["true-positive"] + result_summary["true-negative"]
     ) / len(result)
     return result_summary
+
+
+def save_regex_to_airtable(tag_id, new_regex):
+    if not new_regex or new_regex == settings.DEFAULT_REGEX:
+        return False
+    airtable = Airtable(
+        settings.AIRTABLE_BASE_ID,
+        settings.AIRTABLE_TAGS_TABLE_NAME,
+        settings.AIRTABLE_API_KEY,
+    )
+    record = airtable.update(
+        tag_id,
+        {
+            "Regular expression": new_regex,
+        }
+    )
+    print(record)
+    return True
+
+
+
+tags_used = get_tags_used()

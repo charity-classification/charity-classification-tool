@@ -5,10 +5,12 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 from dash_dangerously_set_inner_html import DangerouslySetInnerHTML
 from slugify import slugify
+import pandas as pd
 
 from app import app
-from data import RESULT_TYPES, get_keyword_result, get_result_summary, tags_used, df
+from data import RESULT_TYPES, get_keyword_result, get_result_summary, tags_used, df, save_regex_to_airtable
 from utils import stats_box, highlight_regex
+from settings import DEFAULT_REGEX
 
 
 layout = [
@@ -24,8 +26,9 @@ layout = [
                 id="tag-regex",
                 placeholder="regex_search",
                 type="text",
-                value=r"\b()\b",
+                value=DEFAULT_REGEX,
                 className="w-100 pa2 f4 code",
+                debounce=True,
             ),
         ],
         className="mv3",
@@ -53,6 +56,19 @@ layout = [
     ),
 ]
 
+@app.callback(
+    Output("tag-regex", "value"),
+    [Input("url", "pathname")]
+)
+def tag_regex_setup(pathname):
+    tag_slug = pathname[1:]
+    if tag_slug not in tags_used["tag_slug"].unique():
+        return DEFAULT_REGEX
+    regex = tags_used.loc[tags_used["tag_slug"] == tag_slug, "Regular expression"].iloc[0]
+    if not regex or pd.isna(regex):
+        return DEFAULT_REGEX
+    return regex
+
 
 @app.callback(
     [
@@ -70,23 +86,34 @@ layout = [
 )
 def tag_regex_page(keyword_regex, pathname):
     tag_slug = pathname[1:]
-    tag = tags_used.loc[tags_used["tag_slug"] == tag_slug, "tag"].iloc[0]
+    tag = tags_used.loc[tags_used["tag_slug"] == tag_slug, :].iloc[0]
+    print(tag["tag"])
+    print(keyword_regex)
     try:
-        result = get_keyword_result(tag, keyword_regex)
+        result = get_keyword_result(tag["tag"], keyword_regex)
     except re.error as err:
         return (
-            [tag, html.Div(str(err), className="bg-red white pa3")]
+            [tag["tag"], html.Div(str(err), className="bg-red white pa3")]
             + [r.replace("-", " ") for r in RESULT_TYPES.keys()]
             + [None for result_type in RESULT_TYPES.keys()]
         )
     result_summary = get_result_summary(result)
+    tags_used.loc[
+        tag.name,
+        "Regular expression"
+    ] = keyword_regex
+    tags_used.loc[tag.name, "precision"] = result_summary["precision"]
+    tags_used.loc[tag.name, "recall"] = result_summary["recall"]
+    tags_used.loc[tag.name, "f1score"] = result_summary["f1score"]
+    tags_used.loc[tag.name, "accuracy"] = result_summary["accuracy"]
+    save_regex_to_airtable(tag.name, keyword_regex)
     return (
         [
-            tag,
+            tag["tag"],
             [
                 html.P(
                     "{:,.0f} records are tagged with {}".format(
-                        result_summary["relevant"], tag
+                        result_summary["relevant"], tag["tag"]
                     )
                 ),
                 html.P(
