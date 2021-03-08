@@ -3,7 +3,10 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 
 from tagger.app import app
+from tagger.data import initialise_data
 from tagger import page_main, page_tag
+
+initialise_data()
 
 
 base_layout = html.Div(

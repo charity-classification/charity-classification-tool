@@ -3,7 +3,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 
 from tagger.app import app
-from tagger.data import tags_used
+from tagger.data import get_tags_used
 from tagger.utils import stat_colour
 
 layout = [
@@ -15,6 +15,7 @@ layout = [
                 type="text",
                 value="",
                 className="w-100 pa2 f4 dn",
+                persistence=True,
             ),
             html.Div([
                 # html.Label("Filter by regular expression", htmlFor="show-rows", className="f5 b pb2 db cf"),
@@ -29,6 +30,7 @@ layout = [
                     inputClassName="mr1",
                     labelClassName="mr2",
                     className="cf",
+                    persistence=True,
                 ),
             ], className="f6 mv2"),
             html.Div([
@@ -44,6 +46,7 @@ layout = [
                     ],
                     value="frequency",
                     className="mw5 mb1",
+                    persistence=True,
                 ),
                 dcc.RadioItems(
                     id="order-by-direction",
@@ -55,6 +58,7 @@ layout = [
                     inputClassName="mr1",
                     labelClassName="mr2",
                     className="cf",
+                    persistence=True,
                 ),
             ], className="f6 mv2"),
         ], className="w-75-l w-100 fl"),
@@ -107,6 +111,7 @@ def filter_main_page(filter_value, show_rows_regex, order_by, order_by_direction
         colour = stat_colour(value)
         return html.Td("{:.0%}".format(value), className=className + colour)
 
+    tags_used = get_tags_used()
     rows_to_show = tags_used.copy()
     if show_rows_regex == "with":
         rows_to_show = rows_to_show[rows_to_show["Regular expression"].notnull()]

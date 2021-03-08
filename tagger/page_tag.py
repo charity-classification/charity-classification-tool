@@ -8,7 +8,7 @@ from slugify import slugify
 import pandas as pd
 
 from tagger.app import app
-from tagger.data import RESULT_TYPES, get_keyword_result, get_result_summary, tags_used, df, save_regex_to_airtable
+from tagger.data import RESULT_TYPES, get_keyword_result, get_result_summary, save_regex_to_airtable, get_tags_used, get_completed_data, save_tags_used
 from tagger.utils import stats_box, highlight_regex
 from tagger.settings import DEFAULT_REGEX
 
@@ -61,6 +61,7 @@ layout = [
     [Input("url", "pathname")]
 )
 def tag_regex_setup(pathname):
+    tags_used = get_tags_used()
     tag_slug = pathname[1:]
     if tag_slug not in tags_used["tag_slug"].unique():
         return DEFAULT_REGEX
@@ -85,6 +86,8 @@ def tag_regex_setup(pathname):
     ],
 )
 def tag_regex_page(keyword_regex, pathname):
+    tags_used = get_tags_used()
+    df, corpus = get_completed_data()
     tag_slug = pathname[1:]
     try:
         tag = tags_used.loc[tags_used["tag_slug"] == tag_slug, :].iloc[0]
@@ -97,7 +100,7 @@ def tag_regex_page(keyword_regex, pathname):
         + [None for r in RESULT_TYPES.keys()]
         )
     try:
-        result = get_keyword_result(tag["tag"], keyword_regex)
+        result = get_keyword_result(tag["tag"], keyword_regex, df, corpus)
     except re.error as err:
         return (
             [tag["tag"], html.Div(str(err), className="bg-red white pa3")]
@@ -114,6 +117,7 @@ def tag_regex_page(keyword_regex, pathname):
     tags_used.loc[tag.name, "f1score"] = result_summary["f1score"]
     tags_used.loc[tag.name, "accuracy"] = result_summary["accuracy"]
     save_regex_to_airtable(tag.name, keyword_regex)
+    save_tags_used(tags_used)
     return (
         [
             tag["tag"],

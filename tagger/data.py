@@ -1,14 +1,11 @@
+import warnings
 from airtable import Airtable
 import pandas as pd
 from slugify import slugify
 
 from tagger import settings
+warnings.filterwarnings("ignore", 'This pattern has match groups')
 
-
-df = pd.read_pickle(settings.COMPLETED_DF)
-corpus = pd.DataFrame([df["name"], df["activities"].fillna(df["objects"])]).T.apply(
-    lambda x: " ".join(x), axis=1
-)
 
 RESULT_TYPES = {
     "false-positive": "Records that should not have been selected but were",
@@ -17,8 +14,25 @@ RESULT_TYPES = {
     "true-negative": "Records that were correctly not selected",
 }
 
+def get_completed_data():
+    df = pd.read_pickle(settings.COMPLETED_DF)
+    corpus = pd.DataFrame([df["name"], df["activities"].fillna(df["objects"])]).T.apply(
+        lambda x: " ".join(x), axis=1
+    )
+    return (df, corpus)
+
+
+def save_tags_used(df):
+    df.to_pickle(settings.TAGS_USED_DF)
+
 
 def get_tags_used():
+    return pd.read_pickle(settings.TAGS_USED_DF)
+
+
+def initialise_data():
+    df, corpus = get_completed_data()
+
     airtable = Airtable(
         settings.AIRTABLE_BASE_ID,
         settings.AIRTABLE_TAGS_TABLE_NAME,
@@ -47,17 +61,18 @@ def get_tags_used():
     data = data.join(tags_used, on="tag")
 
     for index, row in data[data["Regular expression"].notnull()].iterrows():
-        result = get_keyword_result(row["tag"], row["Regular expression"])
+        result = get_keyword_result(row["tag"], row["Regular expression"], df, corpus)
         summary = get_result_summary(result)
         data.loc[index, "precision"] = summary["precision"]
         data.loc[index, "recall"] = summary["recall"]
         data.loc[index, "f1score"] = summary["f1score"]
         data.loc[index, "accuracy"] = summary["accuracy"]
 
-    return data.sort_values("frequency", ascending=False)
+    data = data.sort_values("frequency", ascending=False)
+    save_tags_used(data)
 
 
-def get_keyword_result(tag, keyword_regex):
+def get_keyword_result(tag, keyword_regex, df, corpus):
     selected_items = corpus.str.contains(keyword_regex, regex=True, case=False)
     relevant_items = df["Tags"].apply(lambda x: tag in x if x else False)
     result = pd.DataFrame(
@@ -111,7 +126,3 @@ def save_regex_to_airtable(tag_id, new_regex):
         }
     )
     return True
-
-
-
-tags_used = get_tags_used()
