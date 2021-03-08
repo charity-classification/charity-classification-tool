@@ -110,7 +110,6 @@ def save_regex_to_airtable(tag_id, new_regex):
             "Regular expression": new_regex,
         }
     )
-    print(record)
     return True
 
 

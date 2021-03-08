@@ -86,9 +86,16 @@ def tag_regex_setup(pathname):
 )
 def tag_regex_page(keyword_regex, pathname):
     tag_slug = pathname[1:]
-    tag = tags_used.loc[tags_used["tag_slug"] == tag_slug, :].iloc[0]
-    print(tag["tag"])
-    print(keyword_regex)
+    try:
+        tag = tags_used.loc[tags_used["tag_slug"] == tag_slug, :].iloc[0]
+    except IndexError as e:
+        return ([
+            None,
+            None,
+        ]
+        + [None for r in RESULT_TYPES.keys()] 
+        + [None for r in RESULT_TYPES.keys()]
+        )
     try:
         result = get_keyword_result(tag["tag"], keyword_regex)
     except re.error as err:
