@@ -43,5 +43,5 @@ scp "/local/path/to/completed.pkl" root@<IPADDRESS>:/var/lib/dokku/data/storage/
 Push the changes to the server
 
 ```sh
-git push dokku
+git push dokku main
 ```
