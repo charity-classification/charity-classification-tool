@@ -35,6 +35,7 @@ def display_page(pathname):
         return page_tag.layout
     return page_main.layout
 
+server = app.server
 
 if __name__ == "__main__":
     app.run_server(debug=True)
