@@ -38,6 +38,7 @@ Copy the `completed.pkl` file to the server
 
 ```sh
 scp "/local/path/to/completed.pkl" root@<IPADDRESS>:/var/lib/dokku/data/storage/tagger/data/completed.pkl
+scp "/local/path/to/charities_active.csv" root@<IPADDRESS>:/var/lib/dokku/data/storage/tagger/data/charities_active.csv
 ```
 
 Push the changes to the server
