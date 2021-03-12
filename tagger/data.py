@@ -22,6 +22,64 @@ def get_completed_data():
     return (df, corpus)
 
 
+def group_by_with_total(df, column="income_band"):
+    gb = df[column].value_counts()
+    if gb.index.is_categorical():
+        gb.index = gb.index.add_categories("Total")
+    gb["Total"] = gb.sum()
+    return gb
+
+
+def get_all_charities(keyword_regex, exclude_regex, sample_size=20):
+    df = pd.read_pickle(settings.ALL_CHARITIES_DF)
+    stats = pd.read_pickle(settings.ALL_CHARITIES_BY_INCOME_DF)
+
+    # Get stats for all charities
+    all_charities_by_income = group_by_with_total(df, "income_band")
+    all_charities_count = len(df)
+
+    # Reduce to just the matched charities
+    corpus = pd.DataFrame([df["name"], df["activities"]]).fillna("").T.apply(
+        lambda x: " ".join(x), axis=1
+    )
+    selected_items = corpus.str.contains(keyword_regex, regex=True, case=False)
+    if exclude_regex and not pd.isna(exclude_regex):
+        selected_items = selected_items & ~corpus.str.contains(exclude_regex, regex=True, case=False)
+    df = df[selected_items]
+
+    # get stats about the found charities
+    found_charities = len(df)
+    found_charities_by_income = group_by_with_total(df, "income_band")
+    found_charities_by_income = (found_charities_by_income / all_charities_by_income)
+    found_charities_by_income = pd.DataFrame({
+        "percentage": found_charities_by_income,
+        "estimated_total": found_charities_by_income * stats,
+    })
+
+    if found_charities <= sample_size:
+        return df, found_charities_by_income
+    else:
+        return df.sample(sample_size), found_charities_by_income
+
+
+def prepare_all_charities(completed=None):
+    df = pd.read_csv(settings.ALL_CHARITIES_CSV)
+    df.loc[:, "income_band"] = pd.cut(
+        df["income"],
+        [0,10000,100000,1000000,10000000,float("inf")],
+        labels=["Under £10k", "£10k-£100k", "£100k-£1m", "£1m-£10m", "Over £10m"],
+    )
+    gb = group_by_with_total(df, "income_band")
+    gb.to_pickle(settings.ALL_CHARITIES_BY_INCOME_DF)
+    if isinstance(completed, pd.DataFrame):
+        df = df[~df["reg_number"].isin(completed["reg_number"].unique())]
+    df = df.sample(10000)
+    df.loc[:, "activities"] = df["activities"].fillna(df["objects"])
+    # reg_number,name,postcode,active,date_registered,date_removed,web,company_number,activities,objects,source,last_updated,income,spending,fye
+    df = df[["reg_number", "name", "activities", "source", "income_band"]]
+    df.to_pickle(settings.ALL_CHARITIES_DF)
+
+
 def save_tags_used(df):
     df.to_pickle(settings.TAGS_USED_DF)
 
@@ -32,6 +90,7 @@ def get_tags_used():
 
 def initialise_data():
     df, corpus = get_completed_data()
+    prepare_all_charities(df)
 
     airtable = Airtable(
         settings.AIRTABLE_BASE_ID,
