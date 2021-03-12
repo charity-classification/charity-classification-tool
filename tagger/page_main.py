@@ -2,6 +2,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 
+import pandas as pd
+
 from tagger.app import app
 from tagger.data import get_tags_used
 from tagger.utils import stat_colour
@@ -14,7 +16,7 @@ layout = [
                 placeholder="Filter tags",
                 type="text",
                 value="",
-                className="w-100 pa2 f4 dn",
+                className="w6 pa2 f5",
                 persistence=True,
             ),
             html.Div([
@@ -117,6 +119,8 @@ def filter_main_page(filter_value, show_rows_regex, order_by, order_by_direction
         rows_to_show = rows_to_show[rows_to_show["Regular expression"].notnull()]
     elif show_rows_regex == "without":
         rows_to_show = rows_to_show[rows_to_show["Regular expression"].isnull()]
+    if filter_value:
+        rows_to_show = rows_to_show[rows_to_show["tag"].str.contains(filter_value, case=False)]
 
     if order_by not in ["frequency", "tag", "f1score", "precision", "recall"]:
         order_by = "tag"
@@ -133,7 +137,15 @@ def filter_main_page(filter_value, show_rows_regex, order_by, order_by_direction
                         dcc.Link(row["tag"], href="/tag/{}".format(row["tag_slug"])),
                         className="pv2 ph3",
                     ),
-                    html.Td(html.Code(row["Regular expression"]), className="pv2 ph3 mw6", style={"word-break": "break-word"}),
+                    html.Td(
+                        [html.Code(row["Regular expression"])] + ([
+                            html.Br(),
+                            # html.Strong("Exclude:"), 
+                            html.Code(row["Exclude regular expression"], className="red strike")
+                        ] if not pd.isna(row["Exclude regular expression"]) else []),
+                        className="pv2 ph3 mw6",
+                        style={"word-break": "break-word"}
+                    ),
                     stat_cell(row, "f1score"),
                     stat_cell(row, "precision"),
                     stat_cell(row, "recall"),

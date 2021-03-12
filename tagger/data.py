@@ -61,7 +61,7 @@ def initialise_data():
     data = data.join(tags_used, on="tag")
 
     for index, row in data[data["Regular expression"].notnull()].iterrows():
-        result = get_keyword_result(row["tag"], row["Regular expression"], df, corpus)
+        result = get_keyword_result(row["tag"], row["Regular expression"], row.get("Exclude regular expression"), df, corpus)
         summary = get_result_summary(result)
         data.loc[index, "precision"] = summary["precision"]
         data.loc[index, "recall"] = summary["recall"]
@@ -72,8 +72,10 @@ def initialise_data():
     save_tags_used(data)
 
 
-def get_keyword_result(tag, keyword_regex, df, corpus):
+def get_keyword_result(tag, keyword_regex, exclude_regex, df, corpus):
     selected_items = corpus.str.contains(keyword_regex, regex=True, case=False)
+    if exclude_regex and not pd.isna(exclude_regex):
+        selected_items = selected_items & ~corpus.str.contains(exclude_regex, regex=True, case=False)
     relevant_items = df["Tags"].apply(lambda x: tag in x if x else False)
     result = pd.DataFrame(
         {
@@ -111,7 +113,7 @@ def get_result_summary(result):
     return result_summary
 
 
-def save_regex_to_airtable(tag_id, new_regex):
+def save_regex_to_airtable(tag_id, new_regex, exclude_regex):
     if not new_regex or new_regex == settings.DEFAULT_REGEX:
         return False
     airtable = Airtable(
@@ -123,6 +125,7 @@ def save_regex_to_airtable(tag_id, new_regex):
         tag_id,
         {
             "Regular expression": new_regex,
+            "Exclude regular expression": exclude_regex,
         }
     )
     return True

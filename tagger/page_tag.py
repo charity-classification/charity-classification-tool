@@ -19,7 +19,7 @@ layout = [
     html.Div(
         [
             html.Label(
-                "Regular expression will be checked against charity name and activities",
+                [html.Strong("Include"), " any charity name and activities matching this regular expression"],
                 htmlFor="tag-regex",
             ),
             dcc.Input(
@@ -28,6 +28,23 @@ layout = [
                 type="text",
                 value=DEFAULT_REGEX,
                 className="w-100 pa2 f4 code",
+                debounce=True,
+            ),
+        ],
+        className="mv3",
+    ),
+    html.Div(
+        [
+            html.Label(
+                [html.Strong("Exclude"), " any charity name and activities matching this regular expression"],
+                htmlFor="tag-regex",
+            ),
+            dcc.Input(
+                id="tag-regex-exclude",
+                placeholder="regex_search",
+                type="text",
+                value=DEFAULT_REGEX,
+                className="w-100 pa1 f5 code",
                 debounce=True,
             ),
         ],
@@ -57,18 +74,23 @@ layout = [
 ]
 
 @app.callback(
-    Output("tag-regex", "value"),
+    [Output("tag-regex", "value"),
+     Output("tag-regex-exclude", "value"),],
     [Input("url", "pathname")]
 )
 def tag_regex_setup(pathname):
+    tag_regex = [DEFAULT_REGEX, ""]
     tags_used = get_tags_used()
     tag_slug = pathname[5:]
     if tag_slug not in tags_used["tag_slug"].unique():
-        return DEFAULT_REGEX
-    regex = tags_used.loc[tags_used["tag_slug"] == tag_slug, "Regular expression"].iloc[0]
-    if not regex or pd.isna(regex):
-        return DEFAULT_REGEX
-    return regex
+        return tag_regex
+    tag_regex[0] = tags_used.loc[tags_used["tag_slug"] == tag_slug, "Regular expression"].iloc[0]
+    tag_regex[1] = tags_used.loc[tags_used["tag_slug"] == tag_slug, "Exclude regular expression"].iloc[0]
+    if not tag_regex[0] or pd.isna(tag_regex[0]):
+        tag_regex[0] = DEFAULT_REGEX
+    if not tag_regex[1] or pd.isna(tag_regex[1]):
+        tag_regex[1] = ""
+    return tag_regex
 
 
 @app.callback(
@@ -80,12 +102,13 @@ def tag_regex_setup(pathname):
     + [Output("{}-list".format(r), "children") for r in RESULT_TYPES.keys()],
     [
         Input("tag-regex", "value"),
+        Input("tag-regex-exclude", "value"),
     ],
     [
         State("url", "pathname"),
     ],
 )
-def tag_regex_page(keyword_regex, pathname):
+def tag_regex_page(keyword_regex, exclude_regex, pathname):
     tags_used = get_tags_used()
     df, corpus = get_completed_data()
     tag_slug = pathname[5:]
@@ -100,7 +123,7 @@ def tag_regex_page(keyword_regex, pathname):
         + [None for r in RESULT_TYPES.keys()]
         )
     try:
-        result = get_keyword_result(tag["tag"], keyword_regex, df, corpus)
+        result = get_keyword_result(tag["tag"], keyword_regex, exclude_regex, df, corpus)
     except re.error as err:
         return (
             [tag["tag"], html.Div(str(err), className="bg-red white pa3")]
@@ -116,7 +139,7 @@ def tag_regex_page(keyword_regex, pathname):
     tags_used.loc[tag.name, "recall"] = result_summary["recall"]
     tags_used.loc[tag.name, "f1score"] = result_summary["f1score"]
     tags_used.loc[tag.name, "accuracy"] = result_summary["accuracy"]
-    save_regex_to_airtable(tag.name, keyword_regex)
+    save_regex_to_airtable(tag.name, keyword_regex, exclude_regex)
     save_tags_used(tags_used)
     return (
         [
