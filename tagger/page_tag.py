@@ -19,7 +19,7 @@ from tagger.data import (
     get_all_charities,
 )
 from tagger.utils import stats_box, highlight_regex
-from tagger.settings import DEFAULT_REGEX
+from tagger.settings import DEFAULT_REGEX, TAGS_FIELD_NAME
 
 
 layout = [
@@ -243,7 +243,7 @@ def tag_regex_page(keyword_regex, exclude_regex, result_tab, pathname):
                                                     ),
                                                     className="dib pa1 bg-blue white mr1 mb1",
                                                 )
-                                                for t in row["Tags"]
+                                                for t in row[TAGS_FIELD_NAME]
                                             ],
                                             className="list ma0 pa0 f6",
                                         ),

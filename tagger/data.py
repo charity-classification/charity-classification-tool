@@ -3,9 +3,12 @@ from airtable import Airtable
 import pandas as pd
 from slugify import slugify
 
+from flask.cli import AppGroup
+
 from tagger import settings
 warnings.filterwarnings("ignore", 'This pattern has match groups')
 
+data_cli = AppGroup("data")
 
 RESULT_TYPES = {
     "false-positive": "Records that should not have been selected but were",
@@ -14,12 +17,28 @@ RESULT_TYPES = {
     "true-negative": "Records that were correctly not selected",
 }
 
+def prepare_completed_data(tags):
+    airtable = Airtable(
+        settings.AIRTABLE_BASE_ID,
+        settings.AIRTABLE_SAMPLE_TABLE_NAME,
+        settings.AIRTABLE_API_KEY,
+    )
+    data = airtable.get_all()
+    data = pd.DataFrame(
+        index=[i["id"] for i in data],
+        data=[i["fields"] for i in data],
+    )
+    data.loc[:, settings.TAGS_FIELD_NAME] = data[settings.TAGS_FIELD_NAME].apply(lambda taglist: [tags.get(x, x) for x in taglist])
+    data.to_pickle(settings.COMPLETED_DF)
+    return data
+
+
 def get_completed_data():
-    df = pd.read_pickle(settings.COMPLETED_DF)
-    corpus = pd.DataFrame([df["name"], df["activities"].fillna(df["objects"])]).T.apply(
+    data = pd.read_pickle(settings.COMPLETED_DF)
+    corpus = pd.DataFrame([data["name"], data["activities"].fillna(data["objects"])]).T.apply(
         lambda x: " ".join(x), axis=1
     )
-    return (df, corpus)
+    return (data, corpus)
 
 
 def group_by_with_total(df, column="income_band"):
@@ -88,10 +107,10 @@ def get_tags_used():
     return pd.read_pickle(settings.TAGS_USED_DF)
 
 
+@data_cli.command("initialise")
 def initialise_data():
-    df, corpus = get_completed_data()
-    prepare_all_charities(df)
-
+    print("initialising data")
+    print("Fetching Tags")
     airtable = Airtable(
         settings.AIRTABLE_BASE_ID,
         settings.AIRTABLE_TAGS_TABLE_NAME,
@@ -109,8 +128,15 @@ def initialise_data():
     data.loc[:, "f1score"] = pd.NA
     data.loc[:, "accuracy"] = pd.NA
 
+    print("Fetching completed data")
+    prepare_completed_data(data["tag"].to_dict())
+    df, corpus = get_completed_data()
+    print("Preparing all charities")
+    prepare_all_charities(df)
+
+    print("Finding used tags")
     tags_used = (
-        df["Tags"]
+        df[settings.TAGS_FIELD_NAME]
         .apply(pd.Series)
         .unstack()
         .dropna()
@@ -119,6 +145,7 @@ def initialise_data():
     )
     data = data.join(tags_used, on="tag")
 
+    print("Calculating regular expression results")
     for index, row in data[data["Regular expression"].notnull()].iterrows():
         result = get_keyword_result(row["tag"], row["Regular expression"], row.get("Exclude regular expression"), df, corpus)
         summary = get_result_summary(result)
@@ -135,7 +162,7 @@ def get_keyword_result(tag, keyword_regex, exclude_regex, df, corpus):
     selected_items = corpus.str.contains(keyword_regex, regex=True, case=False)
     if exclude_regex and not pd.isna(exclude_regex):
         selected_items = selected_items & ~corpus.str.contains(exclude_regex, regex=True, case=False)
-    relevant_items = df["Tags"].apply(lambda x: tag in x if x else False)
+    relevant_items = df[settings.TAGS_FIELD_NAME].apply(lambda x: tag in x if x else False)
     result = pd.DataFrame(
         {
             "selected": selected_items,

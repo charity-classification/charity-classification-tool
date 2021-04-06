@@ -3,10 +3,8 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 
 from tagger.app import app
-from tagger.data import initialise_data
+from tagger.data import data_cli
 from tagger import page_main, page_tag
-
-initialise_data()
 
 
 base_layout = html.Div(
@@ -19,6 +17,7 @@ base_layout = html.Div(
 )
 
 app.layout = base_layout
+app.server.cli.add_command(data_cli)
 
 app.validation_layout = html.Div(
     [

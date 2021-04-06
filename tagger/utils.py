@@ -25,13 +25,13 @@ def stats_box(stat, title, link=None):
         className=className,
     )
 
+
 def stat_colour(stat):
     if stat > 0.75:
         return "bg-washed-green dark-green"
     elif stat > 0.5:
         return "bg-washed-yellow orange"
     return "bg-washed-red dark-red"
-
 
 
 def highlight_regex(text, regex):
@@ -44,3 +44,12 @@ def highlight_regex(text, regex):
         text,
         flags=re.IGNORECASE,
     )
+
+
+def get_tag_name(row):
+    parts = [row["Category"]]
+    if isinstance(row["Subcategory"], str) and row["tag"].lower() != row["Subcategory"].lower():
+        parts.append(row["Subcategory"])
+    if row["tag"].lower() != row["Category"].lower():
+        parts.append(row["tag"])
+    return " - ".join(parts)

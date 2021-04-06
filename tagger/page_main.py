@@ -6,7 +6,7 @@ import pandas as pd
 
 from tagger.app import app
 from tagger.data import get_tags_used
-from tagger.utils import stat_colour
+from tagger.utils import stat_colour, get_tag_name
 
 layout = [
     html.Div([
@@ -122,8 +122,8 @@ def filter_main_page(filter_value, show_rows_regex, order_by, order_by_direction
     if filter_value:
         rows_to_show = rows_to_show[rows_to_show["tag"].str.contains(filter_value, case=False)]
 
-    if order_by not in ["frequency", "tag", "f1score", "precision", "recall"]:
-        order_by = "tag"
+    if order_by not in ["frequency", "f1score", "precision", "recall"]:
+        order_by = ["Category", "Subcategory", "tag"]
 
     rows_to_show = rows_to_show.sort_values(
         order_by, ascending=(order_by_direction == "ascending")
@@ -134,7 +134,7 @@ def filter_main_page(filter_value, show_rows_regex, order_by, order_by_direction
             html.Tr(
                 children=[
                     html.Td(
-                        dcc.Link(row["tag"], href="/tag/{}".format(row["tag_slug"])),
+                        dcc.Link(get_tag_name(row), href="/tag/{}".format(row["tag_slug"])),
                         className="pv2 ph3",
                     ),
                     html.Td(
