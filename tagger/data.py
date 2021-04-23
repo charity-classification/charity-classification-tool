@@ -1,3 +1,4 @@
+import re
 import warnings
 from airtable import Airtable
 import pandas as pd
@@ -147,12 +148,18 @@ def initialise_data():
 
     print("Calculating regular expression results")
     for index, row in data[data["Regular expression"].notnull()].iterrows():
-        result = get_keyword_result(row["tag"], row["Regular expression"], row.get("Exclude regular expression"), df, corpus)
-        summary = get_result_summary(result)
-        data.loc[index, "precision"] = summary["precision"]
-        data.loc[index, "recall"] = summary["recall"]
-        data.loc[index, "f1score"] = summary["f1score"]
-        data.loc[index, "accuracy"] = summary["accuracy"]
+        try:
+            result = get_keyword_result(row["tag"], row["Regular expression"], row.get("Exclude regular expression"), df, corpus)
+            summary = get_result_summary(result)
+            data.loc[index, "precision"] = summary["precision"]
+            data.loc[index, "recall"] = summary["recall"]
+            data.loc[index, "f1score"] = summary["f1score"]
+            data.loc[index, "accuracy"] = summary["accuracy"]
+        except re.error:
+            print(f"Error with regex for tag [{row['tag']}]")
+            print(row["Regulat expression"])
+            print(re.error)
+            continue
 
     data = data.sort_values("frequency", ascending=False)
     save_tags_used(data)
@@ -180,22 +187,30 @@ def get_result_summary(result):
     result_summary = {
         "relevant": result["relevant"].sum(),
         "selected": result["selected"].sum(),
+        "precision": None,
+        "recall": None,
+        "f1score": None,
+        "accuracy": None,
     }
     for r in RESULT_TYPES.keys():
         result_summary[r] = (result["result"] == r).sum()
-    result_summary["precision"] = result_summary["true-positive"] / (
-        result_summary["true-positive"] + result_summary["false-positive"]
-    )
-    result_summary["recall"] = result_summary["true-positive"] / (
-        result_summary["true-positive"] + result_summary["false-negative"]
-    )
-    result_summary["f1score"] = 2 * (
-        (result_summary["precision"] * result_summary["recall"])
-        / (result_summary["precision"] + result_summary["recall"])
-    )
-    result_summary["accuracy"] = (
-        result_summary["true-positive"] + result_summary["true-negative"]
-    ) / len(result)
+    if result_summary["true-positive"] + result_summary["false-positive"]:
+        result_summary["precision"] = result_summary["true-positive"] / (
+            result_summary["true-positive"] + result_summary["false-positive"]
+        )
+    if result_summary["true-positive"] + result_summary["false-negative"]:
+        result_summary["recall"] = result_summary["true-positive"] / (
+            result_summary["true-positive"] + result_summary["false-negative"]
+        )
+    if result_summary["precision"] and result_summary["recall"]:
+        result_summary["f1score"] = 2 * (
+            (result_summary["precision"] * result_summary["recall"])
+            / (result_summary["precision"] + result_summary["recall"])
+        )
+    if len(result):
+        result_summary["accuracy"] = (
+            result_summary["true-positive"] + result_summary["true-negative"]
+        ) / len(result)
     return result_summary
 
 
