@@ -13,18 +13,18 @@ from tagger.data import (
     get_keyword_result,
     get_result_summary,
     save_regex_to_airtable,
-    get_tags_used,
+    get_icnptso_used,
     get_completed_data,
-    save_tags_used,
+    save_icnptso_used,
     get_all_charities,
 )
-from tagger.utils import stats_box, highlight_regex
-from tagger.settings import DEFAULT_REGEX, TAGS_FIELD_NAME
+from tagger.utils import stats_box, highlight_regex, get_icnptso_name
+from tagger.settings import AIRTABLE_ICNPTSO_TABLE_NAME, DEFAULT_REGEX, ICNPTSO_FIELD_NAME
 
 
 layout = [
-    dcc.Link("< Back to tags", href="/tag"),
-    html.H2(id="tag-header"),
+    dcc.Link("< Back to ICNPTSO", href="/icnptso"),
+    html.H2(id="category-header"),
     html.Div(
         [
             html.Label(
@@ -32,15 +32,14 @@ layout = [
                     html.Strong("Include"),
                     " any charity name and activities matching this regular expression",
                 ],
-                htmlFor="tag-regex",
+                htmlFor="category-regex",
             ),
-            dcc.Input(
-                id="tag-regex",
+            dcc.Textarea(
+                id="category-regex",
                 placeholder="regex_search",
-                type="text",
                 value=DEFAULT_REGEX,
                 className="w-100 pa2 f4 code",
-                debounce=True,
+                style={"word-break": "break-all"},
             ),
         ],
         className="mv3",
@@ -52,20 +51,19 @@ layout = [
                     html.Strong("Exclude"),
                     " any charity name and activities matching this regular expression",
                 ],
-                htmlFor="tag-regex",
+                htmlFor="category-regex-exclude",
             ),
-            dcc.Input(
-                id="tag-regex-exclude",
+            dcc.Textarea(
+                id="category-regex-exclude",
                 placeholder="regex_search",
-                type="text",
                 value=DEFAULT_REGEX,
                 className="w-100 pa1 f5 code",
-                debounce=True,
+                style={"word-break": "break-all"},
             ),
         ],
         className="mv3",
     ),
-    html.Div(id="result-summary", className="cf mv3"),
+    html.Div(id="category-result-summary", className="cf mv3"),
     dcc.Tabs(
         id="result-tab-select",
         value="sample-match",
@@ -75,57 +73,60 @@ layout = [
         ],
         className="mv3",
     ),
-    html.Div(id="result-tab-content", className="flex flex-wrap"),
+    html.Div(id="category-result-tab-content", className="flex flex-wrap"),
 ]
 
 
 @app.callback(
     [
-        Output("tag-regex", "value"),
-        Output("tag-regex-exclude", "value"),
+        Output("category-regex", "value"),
+        Output("category-regex-exclude", "value"),
     ],
     [Input("url", "pathname")],
 )
-def tag_regex_setup(pathname):
-    tag_regex = [DEFAULT_REGEX, ""]
-    tags_used = get_tags_used()
-    tag_slug = pathname[5:]
-    if tag_slug not in tags_used["tag_slug"].unique():
-        return tag_regex
-    tag_regex[0] = tags_used.loc[
-        tags_used["tag_slug"] == tag_slug, "Regular expression"
+def category_regex_setup(pathname):
+    category_regex = [DEFAULT_REGEX, ""]
+    categories_used = get_icnptso_used()
+    category_slug = pathname[9:]
+    if category_slug not in categories_used["Code"].unique():
+        return category_regex
+    category_regex[0] = categories_used.loc[
+        categories_used["Code"] == category_slug, "Regular expression"
     ].iloc[0]
-    tag_regex[1] = tags_used.loc[
-        tags_used["tag_slug"] == tag_slug, "Exclude regular expression"
-    ].iloc[0]
-    if not tag_regex[0] or pd.isna(tag_regex[0]):
-        tag_regex[0] = DEFAULT_REGEX
-    if not tag_regex[1] or pd.isna(tag_regex[1]):
-        tag_regex[1] = ""
-    return tag_regex
+    if categories_used.get("Exclude regular expression"):
+        category_regex[1] = categories_used.loc[
+            categories_used["Code"] == category_slug, "Exclude regular expression"
+        ].iloc[0]
+    if not category_regex[0] or pd.isna(category_regex[0]):
+        category_regex[0] = DEFAULT_REGEX
+    if not category_regex[1] or pd.isna(category_regex[1]):
+        category_regex[1] = ""
+    return category_regex
 
 
 @app.callback(
     [
-        Output("tag-header", "children"),
-        Output("result-summary", "children"),
-        Output("result-tab-content", "children"),
+        Output("category-header", "children"),
+        Output("category-result-summary", "children"),
+        Output("category-result-tab-content", "children"),
     ],
     [
-        Input("tag-regex", "value"),
-        Input("tag-regex-exclude", "value"),
+        Input("category-regex", "n_blur"),
+        Input("category-regex-exclude", "n_blur"),
         Input("result-tab-select", "value"),
     ],
     [
+        Input("category-regex", "value"),
+        Input("category-regex-exclude", "value"),
         State("url", "pathname"),
     ],
 )
-def tag_regex_page(keyword_regex, exclude_regex, result_tab, pathname):
-    tags_used = get_tags_used()
+def tag_regex_page(_, __, result_tab, keyword_regex, exclude_regex, pathname):
+    categories_used = get_icnptso_used()
     df, corpus = get_completed_data()
-    tag_slug = pathname[5:]
+    category_slug = pathname[9:]
     try:
-        tag = tags_used.loc[tags_used["tag_slug"] == tag_slug, :].iloc[0]
+        category = categories_used.loc[categories_used["Code"] == category_slug, :].iloc[0]
     except IndexError as e:
         return (
             [
@@ -141,25 +142,25 @@ def tag_regex_page(keyword_regex, exclude_regex, result_tab, pathname):
             exclude_regex,
             df,
             corpus,
-            tag=tag["tag"],
+            icnptso=category["Code"],
         )
     except re.error as err:
-        return ([tag["tag"], html.Div(str(err), className="bg-red white pa3")], [])
+        return ([get_icnptso_name(category), html.Div(str(err), className="bg-red white pa3")], [])
     result_summary = get_result_summary(result)
-    tags_used.loc[tag.name, "Regular expression"] = keyword_regex
-    tags_used.loc[tag.name, "precision"] = result_summary["precision"]
-    tags_used.loc[tag.name, "recall"] = result_summary["recall"]
-    tags_used.loc[tag.name, "f1score"] = result_summary["f1score"]
-    tags_used.loc[tag.name, "accuracy"] = result_summary["accuracy"]
-    save_regex_to_airtable(tag.name, keyword_regex, exclude_regex)
-    save_tags_used(tags_used)
+    categories_used.loc[category.name, "Regular expression"] = keyword_regex
+    categories_used.loc[category.name, "precision"] = result_summary["precision"]
+    categories_used.loc[category.name, "recall"] = result_summary["recall"]
+    categories_used.loc[category.name, "f1score"] = result_summary["f1score"]
+    categories_used.loc[category.name, "accuracy"] = result_summary["accuracy"]
+    save_regex_to_airtable(category.name, keyword_regex, exclude_regex, AIRTABLE_ICNPTSO_TABLE_NAME)
+    save_icnptso_used(categories_used)
 
     # get tab content
     if result_tab == "all-charity-match":
         all_charities, all_charities_group = get_all_charities(keyword_regex, exclude_regex)
         result_tab_content = [
             html.Div([
-                html.P("{:,.2%} of charities match this tag ({:,.0f} estimated)".format(
+                html.P("{:,.2%} of charities match this category ({:,.0f} estimated)".format(
                     all_charities_group.loc["Total", "percentage"],
                     all_charities_group.loc["Total", "estimated_total"],
                 ), className="w-100"),
@@ -241,13 +242,12 @@ def tag_regex_page(keyword_regex, exclude_regex, result_tab, pathname):
                                             [
                                                 html.Li(
                                                     dcc.Link(
-                                                        t,
-                                                        href=("/tag/" + slugify(t)),
+                                                        row[ICNPTSO_FIELD_NAME],
+                                                        href=("/icnptso/" + row[ICNPTSO_FIELD_NAME]),
                                                         className="white link underline-hover",
                                                     ),
                                                     className="dib pa1 bg-blue white mr1 mb1",
                                                 )
-                                                for t in row[TAGS_FIELD_NAME]
                                             ],
                                             className="list ma0 pa0 f6",
                                         ),
@@ -268,11 +268,11 @@ def tag_regex_page(keyword_regex, exclude_regex, result_tab, pathname):
         ]
 
     return [
-        tag["tag"],
+        get_icnptso_name(category),
         [
             html.P(
                 "{:,.0f} records are tagged with {}".format(
-                    result_summary["relevant"], tag["tag"]
+                    result_summary["relevant"], category["Code"]
                 )
             ),
             html.P(

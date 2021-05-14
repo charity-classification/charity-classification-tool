@@ -53,3 +53,8 @@ def get_tag_name(row):
     if row["tag"].lower() != row["Category"].lower():
         parts.append(row["tag"])
     return " - ".join(parts)
+
+
+def get_icnptso_name(row):
+    parts = [row["Code"], row["Title"]]
+    return " - ".join(parts)

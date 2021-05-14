@@ -18,7 +18,7 @@ RESULT_TYPES = {
     "true-negative": "Records that were correctly not selected",
 }
 
-def prepare_completed_data(tags):
+def prepare_completed_data(tags, icnptso):
     airtable = Airtable(
         settings.AIRTABLE_BASE_ID,
         settings.AIRTABLE_SAMPLE_TABLE_NAME,
@@ -30,6 +30,7 @@ def prepare_completed_data(tags):
         data=[i["fields"] for i in data],
     )
     data.loc[:, settings.TAGS_FIELD_NAME] = data[settings.TAGS_FIELD_NAME].apply(lambda taglist: [tags.get(x, x) for x in taglist])
+    data.loc[:, settings.ICNPTSO_FIELD_NAME] = data[settings.ICNPTSO_FIELD_NAME].apply(lambda v: icnptso.get(v[0], v[0]) if v else None)
     data.to_pickle(settings.COMPLETED_DF)
     return data
 
@@ -108,6 +109,14 @@ def get_tags_used():
     return pd.read_pickle(settings.TAGS_USED_DF)
 
 
+def save_icnptso_used(df):
+    df.to_pickle(settings.ICNPTSO_USED_DF)
+
+
+def get_icnptso_used():
+    return pd.read_pickle(settings.ICNPTSO_USED_DF)
+
+
 @data_cli.command("initialise")
 def initialise_data():
     print("initialising data")
@@ -117,20 +126,39 @@ def initialise_data():
         settings.AIRTABLE_TAGS_TABLE_NAME,
         settings.AIRTABLE_API_KEY,
     )
-    data = airtable.get_all()
-    data = pd.DataFrame(
-        index=[i["id"] for i in data],
-        data=[i["fields"] for i in data],
+    tags = airtable.get_all()
+    tags = pd.DataFrame(
+        index=[i["id"] for i in tags],
+        data=[i["fields"] for i in tags],
     ).rename(columns={"Name": "tag"})
-    data = data[data["Not used (describe why)"].isnull()]
-    data.loc[:, "tag_slug"] = data["tag"].apply(slugify)
-    data.loc[:, "precision"] = pd.NA
-    data.loc[:, "recall"] = pd.NA
-    data.loc[:, "f1score"] = pd.NA
-    data.loc[:, "accuracy"] = pd.NA
+    tags = tags[tags["Not used (describe why)"].isnull()]
+    tags.loc[:, "tag_slug"] = tags["tag"].apply(slugify)
+    tags.loc[:, "precision"] = pd.NA
+    tags.loc[:, "recall"] = pd.NA
+    tags.loc[:, "f1score"] = pd.NA
+    tags.loc[:, "accuracy"] = pd.NA
+
+    print("Fetching ICNPTSO")
+    airtable = Airtable(
+        settings.AIRTABLE_BASE_ID,
+        settings.AIRTABLE_ICNPTSO_TABLE_NAME,
+        settings.AIRTABLE_API_KEY,
+    )
+    icnptso = airtable.get_all()
+    icnptso = pd.DataFrame(
+        index=[i["id"] for i in icnptso],
+        data=[i["fields"] for i in icnptso],
+    )
+    icnptso.loc[:, "precision"] = pd.NA
+    icnptso.loc[:, "recall"] = pd.NA
+    icnptso.loc[:, "f1score"] = pd.NA
+    icnptso.loc[:, "accuracy"] = pd.NA
 
     print("Fetching completed data")
-    prepare_completed_data(data["tag"].to_dict())
+    prepare_completed_data(
+        tags["tag"].to_dict(),
+        icnptso["Code"].to_dict(),
+    )
     df, corpus = get_completed_data()
     print("Preparing all charities")
     prepare_all_charities(df)
@@ -144,32 +172,75 @@ def initialise_data():
         .value_counts()
         .rename("frequency")
     )
-    data = data.join(tags_used, on="tag")
+    tags = tags.join(tags_used, on="tag")
 
-    print("Calculating regular expression results")
-    for index, row in data[data["Regular expression"].notnull()].iterrows():
+    print("Finding used ICNPTSO")
+    icnptso_used = (
+        df[settings.ICNPTSO_FIELD_NAME]
+        .dropna()
+        .value_counts()
+        .rename("frequency")
+    )
+    icnptso = icnptso.join(icnptso_used, on="Code")
+
+    print("Calculating regular expression results for tags")
+    for index, row in tags[tags["Regular expression"].notnull()].iterrows():
         try:
-            result = get_keyword_result(row["tag"], row["Regular expression"], row.get("Exclude regular expression"), df, corpus)
+            result = get_keyword_result(
+                row["Regular expression"],
+                row.get("Exclude regular expression"),
+                df,
+                corpus,
+                tag=row["tag"],
+            )
             summary = get_result_summary(result)
-            data.loc[index, "precision"] = summary["precision"]
-            data.loc[index, "recall"] = summary["recall"]
-            data.loc[index, "f1score"] = summary["f1score"]
-            data.loc[index, "accuracy"] = summary["accuracy"]
+            tags.loc[index, "precision"] = summary["precision"]
+            tags.loc[index, "recall"] = summary["recall"]
+            tags.loc[index, "f1score"] = summary["f1score"]
+            tags.loc[index, "accuracy"] = summary["accuracy"]
         except re.error:
             print(f"Error with regex for tag [{row['tag']}]")
-            print(row["Regulat expression"])
+            print(row["Regular expression"])
             print(re.error)
             continue
 
-    data = data.sort_values("frequency", ascending=False)
-    save_tags_used(data)
+    print("Calculating regular expression results for ICNPTSO")
+    for index, row in icnptso[icnptso["Regular expression"].notnull()].iterrows():
+        try:
+            result = get_keyword_result(
+                row["Regular expression"],
+                row.get("Exclude regular expression"),
+                df,
+                corpus,
+                icnptso=row["Code"],
+            )
+            summary = get_result_summary(result)
+            icnptso.loc[index, "precision"] = summary["precision"]
+            icnptso.loc[index, "recall"] = summary["recall"]
+            icnptso.loc[index, "f1score"] = summary["f1score"]
+            icnptso.loc[index, "accuracy"] = summary["accuracy"]
+        except re.error:
+            print(f"Error with regex for ICNPTSO [{row['Code']}]")
+            print(row["Regular expression"])
+            print(re.error)
+            continue
+
+    tags = tags.sort_values("frequency", ascending=False)
+    save_tags_used(tags)
+    icnptso = icnptso.sort_values("frequency", ascending=False)
+    save_icnptso_used(icnptso)
 
 
-def get_keyword_result(tag, keyword_regex, exclude_regex, df, corpus):
+def get_keyword_result(keyword_regex, exclude_regex, df, corpus, tag=None, icnptso=None):
     selected_items = corpus.str.contains(keyword_regex, regex=True, case=False)
     if exclude_regex and not pd.isna(exclude_regex):
         selected_items = selected_items & ~corpus.str.contains(exclude_regex, regex=True, case=False)
-    relevant_items = df[settings.TAGS_FIELD_NAME].apply(lambda x: tag in x if x else False)
+    if tag:
+        relevant_items = df[settings.TAGS_FIELD_NAME].apply(lambda x: tag in x if x else False)
+    elif icnptso:
+        relevant_items = df[settings.ICNPTSO_FIELD_NAME]==icnptso
+    else:
+        raise Exception("Need to specify either tag or ICNPTSO")
     result = pd.DataFrame(
         {
             "selected": selected_items,
@@ -214,16 +285,16 @@ def get_result_summary(result):
     return result_summary
 
 
-def save_regex_to_airtable(tag_id, new_regex, exclude_regex):
+def save_regex_to_airtable(row_id, new_regex, exclude_regex, table_name=settings.AIRTABLE_TAGS_TABLE_NAME):
     if not new_regex or new_regex == settings.DEFAULT_REGEX:
         return False
     airtable = Airtable(
         settings.AIRTABLE_BASE_ID,
-        settings.AIRTABLE_TAGS_TABLE_NAME,
+        table_name,
         settings.AIRTABLE_API_KEY,
     )
     record = airtable.update(
-        tag_id,
+        row_id,
         {
             "Regular expression": new_regex,
             "Exclude regular expression": exclude_regex,
