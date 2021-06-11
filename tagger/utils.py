@@ -5,6 +5,8 @@ import dash_html_components as html
 
 def stats_box(stat, title, link=None):
     className = "tc ph4 pv3 fl mr3 "
+    if stat is None:
+        stat = 0
     colours = stat_colour(stat)
     className += colours
     if link:
@@ -27,6 +29,8 @@ def stats_box(stat, title, link=None):
 
 
 def stat_colour(stat):
+    if not stat:
+        return ""
     if stat > 0.75:
         return "bg-washed-green dark-green"
     elif stat > 0.5:
