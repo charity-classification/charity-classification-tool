@@ -121,7 +121,7 @@ def category_regex_setup(pathname):
         State("url", "pathname"),
     ],
 )
-def tag_regex_page(_, __, result_tab, keyword_regex, exclude_regex, pathname):
+def category_regex_page(_, __, result_tab, keyword_regex, exclude_regex, pathname):
     categories_used = get_icnptso_used()
     df, corpus = get_completed_data()
     category_slug = pathname[9:]
@@ -129,12 +129,9 @@ def tag_regex_page(_, __, result_tab, keyword_regex, exclude_regex, pathname):
         category = categories_used.loc[categories_used["Code"] == category_slug, :].iloc[0]
     except IndexError as e:
         return (
-            [
-                None,
-                None,
-            ]
-            + [None for r in RESULT_TYPES.keys()]
-            + [None for r in RESULT_TYPES.keys()]
+            category_slug,
+            [],
+            []
         )
     try:
         result = get_keyword_result(
