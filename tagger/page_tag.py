@@ -95,9 +95,10 @@ def tag_regex_setup(pathname):
     tag_regex[0] = tags_used.loc[
         tags_used["tag_slug"] == tag_slug, "Regular expression"
     ].iloc[0]
-    tag_regex[1] = tags_used.loc[
-        tags_used["tag_slug"] == tag_slug, "Exclude regular expression"
-    ].iloc[0]
+    if "Exclude regular expression" in tags_used.columns:
+        tag_regex[1] = tags_used.loc[
+            tags_used["tag_slug"] == tag_slug, "Exclude regular expression"
+        ].iloc[0]
     if not tag_regex[0] or pd.isna(tag_regex[0]):
         tag_regex[0] = DEFAULT_REGEX
     if not tag_regex[1] or pd.isna(tag_regex[1]):

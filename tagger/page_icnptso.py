@@ -93,7 +93,7 @@ def category_regex_setup(pathname):
     category_regex[0] = categories_used.loc[
         categories_used["Code"] == category_slug, "Regular expression"
     ].iloc[0]
-    if categories_used.get("Exclude regular expression"):
+    if "Exclude regular expression" in categories_used.columns:
         category_regex[1] = categories_used.loc[
             categories_used["Code"] == category_slug, "Exclude regular expression"
         ].iloc[0]
