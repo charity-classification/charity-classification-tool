@@ -286,6 +286,8 @@ def get_result_summary(result):
 
 
 def save_regex_to_airtable(row_id, new_regex, exclude_regex, table_name=settings.AIRTABLE_TAGS_TABLE_NAME):
+    if not settings.AIRTABLE_SAVE:
+        return
     if not new_regex or new_regex == settings.DEFAULT_REGEX:
         return False
     airtable = Airtable(
