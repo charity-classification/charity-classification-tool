@@ -19,7 +19,7 @@ from tagger.data import (
     get_all_charities,
 )
 from tagger.utils import stats_box, highlight_regex
-from tagger.settings import DEFAULT_REGEX, TAGS_FIELD_NAME
+from tagger.settings import DEFAULT_REGEX, TAGS_FIELD_NAME, AIRTABLE_SAVE
 
 
 layout = [
@@ -153,7 +153,8 @@ def tag_regex_page(keyword_regex, exclude_regex, result_tab, pathname):
     tags_used.loc[tag.name, "f1score"] = result_summary["f1score"]
     tags_used.loc[tag.name, "accuracy"] = result_summary["accuracy"]
     save_regex_to_airtable(tag.name, keyword_regex, exclude_regex)
-    save_tags_used(tags_used)
+    if AIRTABLE_SAVE:
+        save_tags_used(tags_used)
 
     # get tab content
     if result_tab == "all-charity-match":

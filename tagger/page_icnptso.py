@@ -19,7 +19,7 @@ from tagger.data import (
     get_all_charities,
 )
 from tagger.utils import stats_box, highlight_regex, get_icnptso_name
-from tagger.settings import AIRTABLE_ICNPTSO_TABLE_NAME, DEFAULT_REGEX, ICNPTSO_FIELD_NAME
+from tagger.settings import AIRTABLE_ICNPTSO_TABLE_NAME, DEFAULT_REGEX, ICNPTSO_FIELD_NAME, AIRTABLE_SAVE
 
 
 layout = [
@@ -150,7 +150,8 @@ def category_regex_page(_, __, result_tab, keyword_regex, exclude_regex, pathnam
     categories_used.loc[category.name, "f1score"] = result_summary["f1score"]
     categories_used.loc[category.name, "accuracy"] = result_summary["accuracy"]
     save_regex_to_airtable(category.name, keyword_regex, exclude_regex, AIRTABLE_ICNPTSO_TABLE_NAME)
-    save_icnptso_used(categories_used)
+    if AIRTABLE_SAVE:
+        save_icnptso_used(categories_used)
 
     # get tab content
     if result_tab == "all-charity-match":
